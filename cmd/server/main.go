@@ -1,6 +1,8 @@
 package main
 
-import "ftgo-order/pkg/adapter/inbound/rest"
+import (
+	"ftgo-order/pkg/adapter/inbound/rest"
+)
 
 func main() {
 	ginServer := rest.NewGinServer()

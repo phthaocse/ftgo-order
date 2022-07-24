@@ -6,13 +6,13 @@ import (
 )
 
 type ginServer struct {
-	Engine *gin.Engine
+	engine *gin.Engine
 	BusinessService
 }
 
 func NewGinServer() *ginServer {
 	server := &ginServer{}
-	server.Engine = gin.Default()
+	server.engine = gin.Default()
 	return server
 }
 
@@ -23,7 +23,7 @@ func (gs *ginServer) HandlerFnWrapper(fn service.BusinessServiceFn) gin.HandlerF
 }
 
 func (gs *ginServer) InitOrderRoute() {
-	orderGroup := gs.Engine.Group("order")
+	orderGroup := gs.engine.Group("order")
 	{
 		orderGroup.POST("", gs.HandlerFnWrapper(gs.OrderService.CreateOrder))
 	}
@@ -37,6 +37,10 @@ func (gs *ginServer) InitBusinessService(services BusinessService) {
 	gs.BusinessService = services
 }
 
+func (gs *ginServer) InitMiddleware() {
+	gs.engine.Use(authMiddleware)
+}
+
 func (gs *ginServer) Run() {
-	gs.Engine.Run(":8080")
+	gs.engine.Run(":8080")
 }

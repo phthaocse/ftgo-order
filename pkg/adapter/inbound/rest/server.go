@@ -7,6 +7,7 @@ import (
 type Server interface {
 	Run()
 	InitRoute()
+	InitMiddleware()
 	InitBusinessService(businessService BusinessService)
 }
 
@@ -20,6 +21,7 @@ func StartHTTPServer(server Server) {
 		OrderService: orderService,
 	}
 	server.InitBusinessService(services)
+	server.InitMiddleware()
 	server.InitRoute()
 	server.Run()
 }
