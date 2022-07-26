@@ -1,15 +1,15 @@
-package postgres_db
+package postgres_repo
 
 import (
 	"context"
 	"fmt"
-	"ftgo-order/pkg/adapter/outbound/logger"
+	"ftgo-order/pkg/interface/outbound"
 	"github.com/jackc/pgconn"
 	"github.com/spf13/viper"
 	"time"
 )
 
-func Init() (*pgconn.PgConn, error) {
+func Init(logger outbound.Logger) (*pgconn.PgConn, error) {
 	var err error
 	dbConnUri := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s",
 		viper.GetString("POSTGRESQL_USER"),
@@ -20,7 +20,7 @@ func Init() (*pgconn.PgConn, error) {
 	)
 	connConf, err := pgconn.ParseConfig(dbConnUri)
 	if err != nil {
-		logger.ZapLogger.Errorf("Postgres connection config wrong: %v", err)
+		logger.Errorf("Postgres connection config wrong: %v", err)
 	}
 	connConf.ConnectTimeout = 5 * time.Second
 	maxRetries := 10
@@ -28,14 +28,14 @@ func Init() (*pgconn.PgConn, error) {
 	var pgConn *pgconn.PgConn
 	for numRetry < maxRetries {
 		numRetry++
-		logger.ZapLogger.Infof("Connecting to Postgres DB at host %s", connConf.Host)
+		logger.Infof("Connecting to Postgres DB at host %s", connConf.Host)
 		pgConn, err = pgconn.ConnectConfig(context.Background(), connConf)
 		if err != nil {
-			logger.ZapLogger.Errorf("Connect to Postgres DB at host %s failed %s", connConf.Host, err.Error())
+			logger.Errorf("Connect to Postgres DB at host %s failed %s", connConf.Host, err.Error())
 			time.Sleep(5 * time.Second)
 			continue
 		}
-		logger.ZapLogger.Infof("Connected to Postgres DB at host %s successfully", connConf.Host)
+		logger.Infof("Connected to Postgres DB at host %s successfully", connConf.Host)
 		break
 	}
 	return pgConn, err
