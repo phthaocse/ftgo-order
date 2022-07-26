@@ -1,7 +1,6 @@
 package rest
 
 import (
-	postgresDb "ftgo-order/pkg/adapter/outbound/postgres_db"
 	"ftgo-order/pkg/core/service"
 )
 
@@ -9,20 +8,10 @@ type Server interface {
 	Run()
 	InitRoute()
 	InitMiddleware()
-	InitBusinessService(businessService BusinessService)
+	InitBusinessService(businessService service.BusinessService)
 }
 
-type BusinessService struct {
-	OrderService service.OrderServiceI
-}
-
-func StartHTTPServer(server Server) {
-	pgConn, _ := postgresDb.Init()
-	orderRepo := postgresDb.NewOrderRepo(pgConn)
-	orderService := service.NewOrderService(orderRepo)
-	services := BusinessService{
-		OrderService: orderService,
-	}
+func StartHTTPServer(server Server, services service.BusinessService) {
 	server.InitBusinessService(services)
 	server.InitMiddleware()
 	server.InitRoute()

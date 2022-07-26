@@ -2,35 +2,40 @@ package postgres_db
 
 import (
 	"context"
+	"fmt"
+	"ftgo-order/pkg/adapter/outbound/logger"
 	"github.com/jackc/pgconn"
 	"github.com/spf13/viper"
-	"go.uber.org/zap"
+	"time"
 )
 
 func Init() (*pgconn.PgConn, error) {
 	var err error
-	zapLogger, err := zap.NewProduction()
-	defer zapLogger.Sync()
-	logger := zapLogger.Sugar()
-	connConf := &pgconn.Config{
-		Host:           viper.GetString("POSTGRES_HOST"),
-		Port:           uint16(viper.GetUint("POSTGRES_PORT")),
-		Database:       viper.GetString("POSTGRES_DB"),
-		User:           viper.GetString("POSTGRES_USER"),
-		Password:       viper.GetString("POSTGRES_PASSWORD"),
-		ConnectTimeout: 15,
+	dbConnUri := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s",
+		viper.GetString("POSTGRESQL_USER"),
+		viper.GetString("POSTGRESQL_PASSWORD"),
+		viper.GetString("POSTGRESQL_HOST"),
+		viper.GetString("POSTGRESQL_PORT"),
+		viper.GetString("POSTGRESQL_DB_NAME"),
+	)
+	connConf, err := pgconn.ParseConfig(dbConnUri)
+	if err != nil {
+		logger.ZapLogger.Errorf("Postgres connection config wrong: %v", err)
 	}
+	connConf.ConnectTimeout = 5 * time.Second
 	maxRetries := 10
 	numRetry := 0
 	var pgConn *pgconn.PgConn
 	for numRetry < maxRetries {
 		numRetry++
-		logger.Infof("Connecting to Postgres DB at host %s", connConf.Host)
+		logger.ZapLogger.Infof("Connecting to Postgres DB at host %s", connConf.Host)
 		pgConn, err = pgconn.ConnectConfig(context.Background(), connConf)
 		if err != nil {
-			logger.Errorf("Connected to Postgres DB at host %s failed", connConf.Host)
+			logger.ZapLogger.Errorf("Connect to Postgres DB at host %s failed %s", connConf.Host, err.Error())
+			time.Sleep(5 * time.Second)
+			continue
 		}
-		logger.Infof("Connected to Postgres DB at host %s successfully", connConf.Host)
+		logger.ZapLogger.Infof("Connected to Postgres DB at host %s successfully", connConf.Host)
 		break
 	}
 	return pgConn, err

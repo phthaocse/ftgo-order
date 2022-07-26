@@ -7,7 +7,7 @@ import (
 
 type ginServer struct {
 	engine *gin.Engine
-	BusinessService
+	service.BusinessService
 }
 
 func NewGinServer() *ginServer {
@@ -33,7 +33,7 @@ func (gs *ginServer) InitRoute() {
 	gs.InitOrderRoute()
 }
 
-func (gs *ginServer) InitBusinessService(services BusinessService) {
+func (gs *ginServer) InitBusinessService(services service.BusinessService) {
 	gs.BusinessService = services
 }
 
