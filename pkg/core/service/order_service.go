@@ -1,6 +1,9 @@
 package service
 
-import "fmt"
+import (
+	"fmt"
+	"ftgo-order/pkg/interface/outbound/repository"
+)
 
 type OrderServiceI interface {
 	CreateOrder()
@@ -9,10 +12,13 @@ type OrderServiceI interface {
 }
 
 type OrderService struct {
+	orderRepo repository.OrderRepo
 }
 
-func NewOrderService() *OrderService {
-	return &OrderService{}
+func NewOrderService(orderRepo repository.OrderRepo) *OrderService {
+	return &OrderService{
+		orderRepo: orderRepo,
+	}
 }
 
 func (os *OrderService) CreateOrder() {

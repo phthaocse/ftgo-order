@@ -1,7 +1,9 @@
 package rest
 
 import (
+	postgresDb "ftgo-order/pkg/adapter/outbound/postgres_db"
 	"ftgo-order/pkg/core/service"
+	"ftgo-order/pkg/interface/outbound/repository"
 )
 
 type Server interface {
@@ -16,7 +18,9 @@ type BusinessService struct {
 }
 
 func StartHTTPServer(server Server) {
-	orderService := service.NewOrderService()
+	pgConn, _ := postgresDb.Init()
+	orderRepo := repository.NewOrderRepo(pgConn)
+	orderService := service.NewOrderService(orderRepo)
 	services := BusinessService{
 		OrderService: orderService,
 	}
