@@ -1,4 +1,4 @@
-package outbound
+package _interface
 
 type Logger interface {
 	Info(...interface{})
@@ -7,4 +7,6 @@ type Logger interface {
 	Errorf(string, ...interface{})
 	Warn(...interface{})
 	Warnf(string, ...interface{})
+	Fatalf(string, ...interface{})
+	Fatal(...interface{})
 }

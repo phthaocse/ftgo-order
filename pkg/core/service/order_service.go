@@ -2,7 +2,8 @@ package service
 
 import (
 	"fmt"
-	"ftgo-order/pkg/interface/outbound/repository"
+	"ftgo-order/pkg/outbound/interface/repository"
+	"time"
 )
 
 type OrderServiceI interface {
@@ -23,6 +24,7 @@ func NewOrderService(orderRepo repository.OrderRepo) *OrderService {
 
 func (os *OrderService) CreateOrder() {
 	fmt.Println("Implement me")
+	time.Sleep(10 * time.Second)
 }
 
 func (os *OrderService) CancelOrder() {
