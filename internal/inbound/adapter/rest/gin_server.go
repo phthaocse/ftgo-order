@@ -2,8 +2,8 @@ package rest
 
 import (
 	"context"
-	"ftgo-order/pkg/core/service"
-	"ftgo-order/pkg/outbound/interface"
+	"ftgo-order/internal/core/service"
+	"ftgo-order/internal/outbound/interface/logger"
 	"github.com/gin-gonic/gin"
 	"net/http"
 	"os/signal"
@@ -13,11 +13,11 @@ import (
 
 type ginServer struct {
 	engine *gin.Engine
-	logger _interface.Logger
+	logger logger.Logger
 	service.BusinessService
 }
 
-func NewGinServer(logger _interface.Logger) *ginServer {
+func NewGinServer(logger logger.Logger) *ginServer {
 	server := &ginServer{}
 	server.engine = gin.Default()
 	server.logger = logger

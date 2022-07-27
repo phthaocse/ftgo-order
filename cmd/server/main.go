@@ -1,26 +1,28 @@
 package main
 
 import (
-	"ftgo-order/pkg/core/service"
-	rest2 "ftgo-order/pkg/inbound/adapter/rest"
-	coreRepo "ftgo-order/pkg/outbound/adapter/core_repo"
-	"ftgo-order/pkg/outbound/adapter/logger"
-	"ftgo-order/pkg/outbound/adapter/postgres_repo"
+	service2 "ftgo-order/internal/core/service"
+	"ftgo-order/internal/inbound/adapter/consumer/kafka"
+	"ftgo-order/internal/inbound/adapter/rest"
+	coreRepo "ftgo-order/internal/outbound/adapter/core_repo"
+	"ftgo-order/internal/outbound/adapter/logger"
+	postgres_repo2 "ftgo-order/internal/outbound/adapter/postgres_repo"
 	"github.com/spf13/viper"
 )
 
 func main() {
 	viper.AutomaticEnv()
-	pgConn, err := postgres_repo.Init(logger.ZapLogger)
+	kafka.StartConsumer(logger.ZapLogger)
+	pgConn, err := postgres_repo2.Init(logger.ZapLogger)
 	if err != nil {
 		return
 	}
-	orderPostgresRepo := postgres_repo.NewOrderPostgresRepo(pgConn)
+	orderPostgresRepo := postgres_repo2.NewOrderPostgresRepo(pgConn)
 	orderRepo := coreRepo.NewOrderRepo(orderPostgresRepo)
-	orderService := service.NewOrderService(orderRepo)
-	services := service.BusinessService{
+	orderService := service2.NewOrderService(orderRepo)
+	services := service2.BusinessService{
 		OrderService: orderService,
 	}
-	ginServer := rest2.NewGinServer(logger.ZapLogger)
-	rest2.StartHTTPServer(ginServer, services)
+	ginServer := rest.NewGinServer(logger.ZapLogger)
+	rest.StartHTTPServer(ginServer, services)
 }

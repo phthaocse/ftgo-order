@@ -1,7 +1,7 @@
 package postgres_repo
 
 import (
-	"ftgo-order/pkg/core/model"
+	"ftgo-order/internal/core/model"
 	"github.com/jackc/pgconn"
 )
 

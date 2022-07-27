@@ -1,0 +1,5 @@
+kafka-consumer:
+  "bootstrap.servers": localhost
+  "auto.offset.reset": earliest
+  "auto.commit.interval.ms": 100
+  "group.id": order-consumer

@@ -1,7 +1,7 @@
 package repository
 
 import (
-	"ftgo-order/pkg/core/model"
+	"ftgo-order/internal/core/model"
 )
 
 type OrderRepo interface {

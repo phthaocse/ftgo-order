@@ -2,7 +2,7 @@ package service
 
 import (
 	"fmt"
-	"ftgo-order/pkg/outbound/interface/repository"
+	"ftgo-order/internal/outbound/interface/repository"
 	"time"
 )
 

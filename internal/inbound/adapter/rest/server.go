@@ -1,7 +1,7 @@
 package rest
 
 import (
-	"ftgo-order/pkg/core/service"
+	"ftgo-order/internal/core/service"
 )
 
 type Server interface {

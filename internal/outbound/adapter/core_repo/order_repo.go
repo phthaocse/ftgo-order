@@ -1,9 +1,9 @@
 package core_repo
 
 import (
-	"ftgo-order/pkg/core/model"
-	"ftgo-order/pkg/outbound/adapter/postgres_repo"
-	"ftgo-order/pkg/outbound/interface/repository"
+	"ftgo-order/internal/core/model"
+	"ftgo-order/internal/outbound/adapter/postgres_repo"
+	"ftgo-order/internal/outbound/interface/repository"
 )
 
 type orderRepo struct {

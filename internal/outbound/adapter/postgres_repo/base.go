@@ -3,13 +3,13 @@ package postgres_repo
 import (
 	"context"
 	"fmt"
-	"ftgo-order/pkg/outbound/interface"
+	"ftgo-order/internal/outbound/interface/logger"
 	"github.com/jackc/pgconn"
 	"github.com/spf13/viper"
 	"time"
 )
 
-func Init(logger _interface.Logger) (*pgconn.PgConn, error) {
+func Init(logger logger.Logger) (*pgconn.PgConn, error) {
 	var err error
 	dbConnUri := fmt.Sprintf("postgresql://%s:%s@%s:%s/%s",
 		viper.GetString("POSTGRESQL_USER"),
