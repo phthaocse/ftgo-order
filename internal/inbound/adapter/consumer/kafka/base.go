@@ -8,35 +8,69 @@ import (
 	"github.com/spf13/viper"
 )
 
-type KafkaConsumer struct {
-	Consumer *kafka.Consumer
-	Config   kafka.ConfigMap
+type partitionInfo struct {
+	topic         string
+	partition     int
+	currentOffset int
 }
 
-func (k *KafkaConsumer) ReadConfig(logger logger.Logger) {
+type KafkaConsumer struct {
+	Consumer       *kafka.Consumer
+	Topics         []string
+	Config         kafka.ConfigMap
+	Logger         logger.Logger
+	topicPartition []kafka.TopicPartition
+}
+
+func (c *KafkaConsumer) ReadConfig() {
 	viper.SetConfigName("kafka")
 	viper.SetConfigType("yaml")
 	projectPath := helpers.ProjectPath()
 	viper.AddConfigPath(projectPath + "config")
 	if err := viper.ReadInConfig(); err != nil {
-		logger.Error(err.Error())
+		c.Logger.Error(err.Error())
 	}
-	k.Config = kafka.ConfigMap{}
+	c.Config = kafka.ConfigMap{}
 	for key, val := range viper.GetStringMap("kafka-consumer") {
-		k.Config[key] = val
+		c.Config[key] = val
 	}
-	logger.Info(k.Config)
+	c.Logger.Info(c.Config)
 }
 
-func StartConsumer(logger logger.Logger) {
-	consumer := KafkaConsumer{}
-	consumer.ReadConfig(logger)
+func (c *KafkaConsumer) StartConsumer() {
+	c.ReadConfig()
 	var err error
-	configByte, _ := json.Marshal(consumer.Config)
-	logger.Info("Create consumer with config: ", string(configByte))
-	consumer.Consumer, err = kafka.NewConsumer(&consumer.Config)
+	configByte, _ := json.Marshal(c.Config)
+	c.Logger.Info("Create consumer with config: ", string(configByte))
+	c.Consumer, err = kafka.NewConsumer(&c.Config)
 	if err != nil {
-		logger.Errorf("Create consumer failed: %v", err)
+		c.Logger.Errorf("Create consumer failed: %v", err)
 	}
-	logger.Info("Created consumer ", consumer.Consumer.String())
+	c.Logger.Info("Created consumer ", c.Consumer.String())
+}
+
+func (c *KafkaConsumer) rebalanceCallback(consumer *kafka.Consumer, event kafka.Event) error {
+	switch event.(type) {
+	case kafka.AssignedPartitions:
+		assignedPartitions := event.(kafka.AssignedPartitions)
+		c.Logger.Infof("Partitions were revoked: %v", assignedPartitions.Partitions)
+		c.topicPartition = assignedPartitions.Partitions
+	case kafka.RevokedPartitions:
+		revokedPartitions := event.(kafka.RevokedPartitions)
+		c.Logger.Infof("Partitions were revoked: %v", revokedPartitions.Partitions)
+		topicPartition, err := consumer.Commit()
+		if err != nil {
+			c.Logger.Errorf("commit failed %v", err)
+		}
+		c.topicPartition = topicPartition
+	}
+	return nil
+}
+
+func (c *KafkaConsumer) SubscriptTopics() error {
+	return c.Consumer.SubscribeTopics(c.Topics, c.rebalanceCallback)
+}
+
+func (c *KafkaConsumer) ProcessMessage() {
+
 }
