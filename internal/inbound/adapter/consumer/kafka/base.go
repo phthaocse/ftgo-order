@@ -6,13 +6,13 @@ import (
 	"ftgo-order/pkg/helpers"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 	"github.com/spf13/viper"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 )
 
-type partitionInfo struct {
-	topic         string
-	partition     int
-	currentOffset int
-}
+const MaxPartition = 50
 
 type KafkaConsumer struct {
 	Consumer       *kafka.Consumer
@@ -71,6 +71,94 @@ func (c *KafkaConsumer) SubscriptTopics() error {
 	return c.Consumer.SubscribeTopics(c.Topics, c.rebalanceCallback)
 }
 
-func (c *KafkaConsumer) ProcessMessage() {
+type ProcessMessageFn func(message *kafka.Message) error
 
+func (c *KafkaConsumer) processMessage(messageChans []<-chan *kafka.Message, processFn ProcessMessageFn) {
+	for _, messageChan := range messageChans {
+		go func(messageChan <-chan *kafka.Message) {
+			for msg := range messageChan {
+				retry := 0
+				for retry < 10 {
+					retry++
+					if err := processFn(msg); err != nil {
+						c.Logger.Errorf("process message error: %v, key: %s, value: %s, topicpartion: %v with error %v", msg, string(msg.Key), string(msg.Value), msg.TopicPartition, err)
+						time.Sleep(time.Second)
+					}
+					break
+				}
+				go func() {
+					_, err := c.Consumer.StoreMessage(msg)
+					if err != nil {
+						c.Logger.Errorf("commit failed due to %v, the next commit will serve as retry", err)
+					}
+				}()
+			}
+		}(messageChan)
+	}
+}
+
+func (c *KafkaConsumer) GetCurrentPartition() (int, error) {
+	numPartition := 0
+	var consumerMetaData *kafka.Metadata
+	var err error
+
+	numRetry := 0
+	for numRetry < 10 {
+		numRetry++
+		if numRetry >= 10 {
+			return 0, err
+		}
+		consumerMetaData, err = c.Consumer.GetMetadata(nil, true, 10000)
+		if err != nil {
+			c.Logger.Errorf("Can't get consumer data due to error %v", err)
+		}
+		break
+	}
+
+	for _, topicMetaData := range consumerMetaData.Topics {
+		numPartition += len(topicMetaData.Partitions)
+	}
+	return numPartition, nil
+}
+
+func (c *KafkaConsumer) ListenAndProcess() {
+	defer c.Consumer.Close()
+	sigchan := make(chan os.Signal, 1)
+	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
+	var numChan int
+	numPartition, err := c.GetCurrentPartition()
+	if err != nil {
+		c.Logger.Infof("Due to the metadata couldn't be gotten from broker, the default max partition will be used")
+		numChan = MaxPartition
+	} else {
+		numChan = numPartition
+	}
+	var messageChan []chan *kafka.Message
+	for i := 0; i < numChan; i++ {
+		messageChan[i] = make(chan *kafka.Message, 1000)
+	}
+
+	running := true
+	for running {
+		select {
+		case sig := <-sigchan:
+			c.Logger.Infof("Caught signal %v: terminating\n", sig)
+			running = false
+		default:
+			message, err := c.Consumer.ReadMessage(5 * time.Second)
+			if err != nil {
+				c.Logger.Errorf("read message with error %v", err)
+				continue
+			}
+			messageChan[message.TopicPartition.Partition] <- message
+		}
+
+	}
+	for {
+		if _, err := c.Consumer.Commit(); err != nil {
+			c.Logger.Errorf("commit failed due to %v, will retry soon", err)
+			time.Sleep(1 * time.Second)
+		}
+		break
+	}
 }
