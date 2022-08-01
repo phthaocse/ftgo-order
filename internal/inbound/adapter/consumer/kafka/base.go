@@ -2,6 +2,7 @@ package kafka
 
 import (
 	"encoding/json"
+	"fmt"
 	"ftgo-order/internal/outbound/interface/logger"
 	"ftgo-order/pkg/helpers"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
@@ -16,10 +17,25 @@ const MaxPartition = 50
 
 type KafkaConsumer struct {
 	Consumer       *kafka.Consumer
-	Topics         []string
+	topics         []string
 	Config         kafka.ConfigMap
 	Logger         logger.Logger
 	topicPartition []kafka.TopicPartition
+}
+
+func NewConsumer(logger logger.Logger) *KafkaConsumer {
+	consumer := KafkaConsumer{}
+	consumer.Logger = logger
+	consumer.ReadConfig()
+	var err error
+	configByte, _ := json.Marshal(consumer.Config)
+	consumer.Logger.Info("Create consumer with config: ", string(configByte))
+	consumer.Consumer, err = kafka.NewConsumer(&consumer.Config)
+	if err != nil {
+		consumer.Logger.Errorf("Create consumer failed: %v", err)
+	}
+	consumer.Logger.Info("Created consumer ", consumer.Consumer.String())
+	return &consumer
 }
 
 func (c *KafkaConsumer) ReadConfig() {
@@ -37,23 +53,11 @@ func (c *KafkaConsumer) ReadConfig() {
 	c.Logger.Info(c.Config)
 }
 
-func (c *KafkaConsumer) StartConsumer() {
-	c.ReadConfig()
-	var err error
-	configByte, _ := json.Marshal(c.Config)
-	c.Logger.Info("Create consumer with config: ", string(configByte))
-	c.Consumer, err = kafka.NewConsumer(&c.Config)
-	if err != nil {
-		c.Logger.Errorf("Create consumer failed: %v", err)
-	}
-	c.Logger.Info("Created consumer ", c.Consumer.String())
-}
-
 func (c *KafkaConsumer) rebalanceCallback(consumer *kafka.Consumer, event kafka.Event) error {
 	switch event.(type) {
 	case kafka.AssignedPartitions:
 		assignedPartitions := event.(kafka.AssignedPartitions)
-		c.Logger.Infof("Partitions were revoked: %v", assignedPartitions.Partitions)
+		c.Logger.Infof("Partitions were assigned: %v", assignedPartitions.Partitions)
 		c.topicPartition = assignedPartitions.Partitions
 	case kafka.RevokedPartitions:
 		revokedPartitions := event.(kafka.RevokedPartitions)
@@ -67,16 +71,21 @@ func (c *KafkaConsumer) rebalanceCallback(consumer *kafka.Consumer, event kafka.
 	return nil
 }
 
-func (c *KafkaConsumer) SubscriptTopics() error {
-	return c.Consumer.SubscribeTopics(c.Topics, c.rebalanceCallback)
+func (c *KafkaConsumer) SubscriptTopic(topic string) error {
+	c.topics = append(c.topics, topic)
+	return c.Consumer.SubscribeTopics(c.topics, c.rebalanceCallback)
+}
+func (c *KafkaConsumer) SubscriptAllTopics() error {
+	return c.Consumer.SubscribeTopics(c.topics, c.rebalanceCallback)
 }
 
 type ProcessMessageFn func(message *kafka.Message) error
 
-func (c *KafkaConsumer) processMessage(messageChans []<-chan *kafka.Message, processFn ProcessMessageFn) {
+func (c *KafkaConsumer) processMessage(messageChans []chan *kafka.Message, processFn ProcessMessageFn) {
 	for _, messageChan := range messageChans {
 		go func(messageChan <-chan *kafka.Message) {
 			for msg := range messageChan {
+				c.Logger.Infof("start processing message: %v, key: %s, value: %s, topicpartion: %v", msg, string(msg.Key), string(msg.Value), msg.TopicPartition)
 				retry := 0
 				for retry < 10 {
 					retry++
@@ -86,18 +95,20 @@ func (c *KafkaConsumer) processMessage(messageChans []<-chan *kafka.Message, pro
 					}
 					break
 				}
-				go func() {
-					_, err := c.Consumer.StoreMessage(msg)
+				go func(message *kafka.Message) {
+					_, err := c.Consumer.StoreMessage(message)
 					if err != nil {
-						c.Logger.Errorf("commit failed due to %v, the next commit will serve as retry", err)
+						c.Logger.Errorf("commit failed due to %v, the next commit will serve as retry")
+						return
 					}
-				}()
+					c.Logger.Infof("store message %v successfully", message)
+				}(msg)
 			}
 		}(messageChan)
 	}
 }
 
-func (c *KafkaConsumer) GetCurrentPartition() (int, error) {
+func (c *KafkaConsumer) getCurrentPartition() (int, error) {
 	numPartition := 0
 	var consumerMetaData *kafka.Metadata
 	var err error
@@ -116,38 +127,44 @@ func (c *KafkaConsumer) GetCurrentPartition() (int, error) {
 	}
 
 	for _, topicMetaData := range consumerMetaData.Topics {
-		numPartition += len(topicMetaData.Partitions)
+		if topicMetaData.Topic != "__consumer_offsets" {
+			numPartition += len(topicMetaData.Partitions)
+		}
 	}
 	return numPartition, nil
 }
 
-func (c *KafkaConsumer) ListenAndProcess() {
+func (c *KafkaConsumer) ListenAndProcess(processFn ProcessMessageFn) {
 	defer c.Consumer.Close()
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
 	var numChan int
-	numPartition, err := c.GetCurrentPartition()
+	numPartition, err := c.getCurrentPartition()
 	if err != nil {
 		c.Logger.Infof("Due to the metadata couldn't be gotten from broker, the default max partition will be used")
 		numChan = MaxPartition
 	} else {
 		numChan = numPartition
 	}
-	var messageChan []chan *kafka.Message
+	messageChan := make([]chan *kafka.Message, numChan)
 	for i := 0; i < numChan; i++ {
 		messageChan[i] = make(chan *kafka.Message, 1000)
 	}
-
+	go c.processMessage(messageChan, processFn)
 	running := true
-	for running {
+	for running == true {
 		select {
 		case sig := <-sigchan:
+			fmt.Printf("Caught signal %v: terminating\n", sig)
 			c.Logger.Infof("Caught signal %v: terminating\n", sig)
 			running = false
 		default:
-			message, err := c.Consumer.ReadMessage(5 * time.Second)
+			message, err := c.Consumer.ReadMessage(time.Second)
 			if err != nil {
-				c.Logger.Errorf("read message with error %v", err)
+				newErr := err.(kafka.Error)
+				if newErr.Code() != kafka.ErrTimedOut {
+					c.Logger.Errorf("read message with error %v", err)
+				}
 				continue
 			}
 			messageChan[message.TopicPartition.Partition] <- message
@@ -161,4 +178,5 @@ func (c *KafkaConsumer) ListenAndProcess() {
 		}
 		break
 	}
+	c.Logger.Info("Shutdown kafka consumer")
 }

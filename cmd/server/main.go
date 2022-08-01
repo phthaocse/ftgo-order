@@ -8,11 +8,11 @@ import (
 	"ftgo-order/internal/outbound/adapter/logger"
 	postgres_repo2 "ftgo-order/internal/outbound/adapter/postgres_repo"
 	"github.com/spf13/viper"
+	"os"
 )
 
 func main() {
 	viper.AutomaticEnv()
-	kafka.StartConsumer(logger.ZapLogger)
 	pgConn, err := postgres_repo2.Init(logger.ZapLogger)
 	if err != nil {
 		return
@@ -23,6 +23,12 @@ func main() {
 	services := service2.BusinessService{
 		OrderService: orderService,
 	}
-	ginServer := rest.NewGinServer(logger.ZapLogger)
-	rest.StartHTTPServer(ginServer, services)
+	if len(os.Args) > 1 && os.Args[1] == "order-consumer" {
+		orderConsumer := kafka.NewOrderConsumer(logger.ZapLogger)
+		orderConsumer.StartOrderConsumer()
+	} else {
+		ginServer := rest.NewGinServer(logger.ZapLogger)
+		rest.StartHTTPServer(ginServer, services)
+	}
+
 }
