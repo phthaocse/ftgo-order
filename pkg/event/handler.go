@@ -1,15 +1,5 @@
 package event
 
-import "ftgo-order/pkg/message"
-
-type DomainEvent interface {
-	GetEvent() string
-	GetAggregateId() string
-	GetMessage() message.Message
-	GetAggregateType() string
-	GetEventId() string
-}
-
 type Handler interface {
 	ServeEvent(event DomainEvent)
 }
@@ -22,11 +12,11 @@ func (f HandlerFn) ServeEvent(event DomainEvent) {
 
 type DomainEventHandler struct {
 	aggregateType string
-	event         string
+	event         DomainEvent
 	handler       Handler
 }
 
-func NewDomainEventHandler(aggregateType string, event string, handler Handler) *DomainEventHandler {
+func NewDomainEventHandler(aggregateType string, event DomainEvent, handler Handler) *DomainEventHandler {
 	return &DomainEventHandler{
 		aggregateType: aggregateType,
 		event:         event,

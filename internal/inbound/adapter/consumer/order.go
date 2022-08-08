@@ -1,6 +1,7 @@
 package consumer
 
 import (
+	"ftgo-order/internal/core/event/restauarant"
 	"ftgo-order/internal/core/service"
 	"ftgo-order/pkg/event"
 )
@@ -14,8 +15,9 @@ func NewOrderEventConsumer(orderService service.OrderServiceI) *orderEventConsum
 }
 
 func (e *orderEventConsumer) Handlers() []*event.DomainEventHandler {
+	createMenuEvent := restauarant.Created{}
 	return []*event.DomainEventHandler{
-		event.NewDomainEventHandler("Restaurant", "create_menu", e.CreateMenu()),
+		event.NewDomainEventHandler("Restaurant", createMenuEvent, e.CreateMenu()),
 	}
 }
 

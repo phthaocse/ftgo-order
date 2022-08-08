@@ -9,8 +9,9 @@ type RestaurantEventConsumer struct {
 }
 
 func (c *RestaurantEventConsumer) DomainEventHandlers() []*event.DomainEventHandler {
+	createdEvent := Created{}
 	return []*event.DomainEventHandler{
-		event.NewDomainEventHandler("restaurant", "create_restaurant", c.CreateRestaurant()),
+		event.NewDomainEventHandler("restaurant", createdEvent, c.CreateRestaurant()),
 	}
 }
 
