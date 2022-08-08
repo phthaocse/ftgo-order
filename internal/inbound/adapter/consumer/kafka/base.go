@@ -75,6 +75,12 @@ func (c *KafkaConsumer) SubscriptTopic(topic string) error {
 	c.topics = append(c.topics, topic)
 	return c.Consumer.SubscribeTopics(c.topics, c.rebalanceCallback)
 }
+
+func (c *KafkaConsumer) SubscriptTopics(topics []string) error {
+	c.topics = append(c.topics, topics...)
+	return c.Consumer.SubscribeTopics(c.topics, c.rebalanceCallback)
+}
+
 func (c *KafkaConsumer) SubscriptAllTopics() error {
 	return c.Consumer.SubscribeTopics(c.topics, c.rebalanceCallback)
 }

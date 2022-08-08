@@ -2,31 +2,38 @@ package kafka
 
 import (
 	"ftgo-order/internal/outbound/interface/logger"
+	"ftgo-order/pkg/message"
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
-type OrderConsumer struct {
-	Consumer *KafkaConsumer
-	Logger   logger.Logger
+type RestaurantMessageConsumer struct {
+	Consumer   *KafkaConsumer
+	Logger     logger.Logger
+	Dispatcher message.Dispatcher
 }
 
-func NewOrderConsumer(logger logger.Logger) *OrderConsumer {
-	return &OrderConsumer{
-		Logger: logger,
+func NewRestaurantConsumer(logger logger.Logger) *RestaurantMessageConsumer {
+	return &RestaurantMessageConsumer{
+		Consumer: NewConsumer(logger),
+		Logger:   logger,
 	}
 }
 
-func (oc *OrderConsumer) ProcessMessage(msg *kafka.Message) error {
-	oc.Logger.Info(msg)
+func (oc *RestaurantMessageConsumer) ProcessMessage(msg *kafka.Message) error {
+	dispatchMsg := toMessage(msg)
+	oc.Dispatcher.Dispatch(dispatchMsg)
 	return nil
 }
 
-func (oc *OrderConsumer) StartOrderConsumer() {
-	oc.Consumer = NewConsumer(oc.Logger)
-	err := oc.Consumer.SubscriptTopic("test-topic")
+func (oc *RestaurantMessageConsumer) Subscribe(subscriberId string, channels map[string]struct{}, dispatcher message.Dispatcher) {
+	err := oc.Consumer.SubscriptTopics(mapToSlice(channels))
+	oc.Dispatcher = dispatcher
 	if err != nil {
 		oc.Logger.Errorf("can't subscript topic order %v", err)
 		panic(err)
 	}
+}
+
+func (oc *RestaurantMessageConsumer) Start() {
 	oc.Consumer.ListenAndProcess(oc.ProcessMessage)
 }

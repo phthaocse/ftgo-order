@@ -2,7 +2,7 @@ package core_repo
 
 import (
 	"ftgo-order/internal/core/model"
-	"ftgo-order/internal/outbound/adapter/postgres_repo"
+	"ftgo-order/internal/outbound/adapter/repo/postgres_repo"
 	"ftgo-order/internal/outbound/interface/repository"
 )
 

@@ -10,6 +10,7 @@ type OrderServiceI interface {
 	CreateOrder()
 	CancelOrder()
 	ReviseOrder()
+	CreateMenu()
 }
 
 type OrderService struct {
@@ -33,4 +34,8 @@ func (os *OrderService) CancelOrder() {
 
 func (os *OrderService) ReviseOrder() {
 	fmt.Println("Implement me")
+}
+
+func (os *OrderService) CreateMenu() {
+
 }
