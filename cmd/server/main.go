@@ -1,9 +1,9 @@
 package main
 
 import (
-	service2 "ftgo-order/internal/core/service"
-	"ftgo-order/internal/inbound/adapter/consumer"
-	"ftgo-order/internal/inbound/adapter/consumer/kafka"
+	"ftgo-order/internal/core/service"
+	eventConsumer "ftgo-order/internal/inbound/adapter/consumer/event"
+	"ftgo-order/internal/inbound/adapter/consumer/message"
 	"ftgo-order/internal/inbound/adapter/rest"
 	"ftgo-order/internal/outbound/adapter/logger"
 	coreRepo "ftgo-order/internal/outbound/adapter/repo/core_repo"
@@ -21,15 +21,15 @@ func main() {
 	}
 	orderPostgresRepo := postgres_repo.NewOrderPostgresRepo(pgConn)
 	orderRepo := coreRepo.NewOrderRepo(orderPostgresRepo)
-	orderService := service2.NewOrderService(orderRepo)
-	services := service2.BusinessService{
+	orderService := service.NewOrderService(orderRepo)
+	services := service.BusinessService{
 		OrderService: orderService,
 	}
 
 	if len(os.Args) > 1 && os.Args[1] == "order-consumer" {
-		orderEventConsumer := consumer.NewOrderEventConsumer(orderService)
+		orderEventConsumer := eventConsumer.NewOrderEventConsumer(orderService)
 		orderEventConsumer.Handlers()
-		restaurantMessageConsumer := kafka.NewRestaurantConsumer(logger.ZapLogger)
+		restaurantMessageConsumer := message.NewRestaurantConsumer(logger.ZapLogger)
 		restaurantDispatcher := event.NewDomainEventDispatcher(restaurantMessageConsumer, logger.ZapLogger)
 		restaurantDispatcher.Subscribe("RES1", map[string]struct{}{"restaurant": {}}, orderEventConsumer.Handlers())
 		restaurantMessageConsumer.Start()

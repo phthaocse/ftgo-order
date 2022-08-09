@@ -6,7 +6,7 @@ import (
 	"github.com/confluentinc/confluent-kafka-go/kafka"
 )
 
-func toMessage(kafkaMsg *kafka.Message) message.Message {
+func ToMessage(kafkaMsg *kafka.Message) message.Message {
 	resMsg := message.Message{}
 
 	header := map[string][]byte{}
@@ -20,7 +20,7 @@ func toMessage(kafkaMsg *kafka.Message) message.Message {
 	return resMsg
 }
 
-func mapToSlice[T comparable](in map[T]struct{}) []T {
+func MapToSlice[T comparable](in map[T]struct{}) []T {
 	var out []T
 	for key, _ := range in {
 		out = append(out, key)

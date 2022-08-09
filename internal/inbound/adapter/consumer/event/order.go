@@ -1,4 +1,4 @@
-package consumer
+package event
 
 import (
 	"ftgo-order/internal/core/event/restauarant"
